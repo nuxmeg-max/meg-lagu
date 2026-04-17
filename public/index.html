@@ -17,22 +17,22 @@
             <button id="follow-btn" style="display:none;" onclick="toggleFollow()">FOLLOW_ARTIST</button>
         </div>
 
-        <div id="player-status">NOW_PLAYING: <span id="current-title">-</span></div>
-        <audio id="audio-web" controls></audio>
+        <div id="player-status" style="display:none;">NOW_PLAYING: <span id="current-title">-</span></div>
+        <audio id="audio-web" controls style="width:100%; margin-top:10px; filter:invert(1);"></audio>
         
         <div id="results"></div>
     </div>
 
     <div class="fab-container">
         <button class="fab" onclick="showModal('donate')">DONATE</button>
-        <button class="fab" onclick="window.open('https://wa.me/628XXXXXXXXXX')">DEV</button>
+        <button class="fab" onclick="hubungiDev()">DEV</button>
     </div>
 
     <div id="overlay" class="overlay" onclick="closeModal()"></div>
     <div id="modal-donate" class="modal">
         <h3>QRIS_DONATE</h3>
-        <p>Scan untuk support developer</p>
-        <img src="https://via.placeholder.com/200?text=QRIS_KAMU" style="width:100%">
+        <p style="font-size:10px">Scan untuk support developer</p>
+        <img src="https://via.placeholder.com/200?text=QRIS_ANDA" style="width:100%; border:1px solid #fff;">
         <button onclick="closeModal()" style="margin-top:10px">CLOSE</button>
     </div>
 
@@ -40,38 +40,50 @@
         let queue = [];
         let currentTrackIndex = -1;
         let userName = localStorage.getItem('meg_user');
-        
-        // Cek User Pertama Kali
+
+        // 1. CEK USER (SESSION)
         function checkUser() {
             if (!userName) {
-                userName = prompt("Selamat datang! Masukkan nama kamu:");
-                if (!userName) userName = "Guest_" + Math.floor(Math.random()*100);
+                let inputName = prompt("Selamat datang di MEG_MUSIC_v4!\nMasukkan namamu:");
+                userName = inputName ? inputName.trim() : "Guest_" + Math.floor(Math.random()*1000);
                 localStorage.setItem('meg_user', userName);
-                location.reload();
             }
             document.getElementById('display-name').innerText = userName.toUpperCase();
         }
         window.onload = checkUser;
 
-        // Data Management (Like & Follow)
+        // 2. DATA MANAGEMENT (LIKE/FOLLOW PER USER)
         const getLikes = () => JSON.parse(localStorage.getItem(`likes_${userName}`)) || [];
         const setLikes = (data) => localStorage.setItem(`likes_${userName}`, JSON.stringify(data));
         const getFollows = () => JSON.parse(localStorage.getItem(`follows_${userName}`)) || [];
         const setFollows = (data) => localStorage.setItem(`follows_${userName}`, JSON.stringify(data));
 
+        // 3. FUNGSI CARI LAGU (FIXED CONNECTION)
         async function cariLagu() {
             const q = document.getElementById('query').value;
             const resDiv = document.getElementById('results');
-            if(!q) return;
+            if(!q) return alert("Ketik nama lagu dulu!");
 
-            resDiv.innerHTML = "<p>MENCARI...</p>";
+            resDiv.innerHTML = "<p class='loading'>MENCARI_DATA...</p>";
             document.getElementById('follow-btn').style.display = "block";
             updateFollowBtn(q);
 
             try {
-                const response = await fetch(`/api/search?q=${q}`);
-                queue = await response.json();
+                // Menggunakan path relatif agar sinkron dengan vercel.json
+                const response = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+                
+                if (!response.ok) throw new Error("Gagal terhubung ke Server");
+                
+                const data = await response.json();
+                
+                // Validasi data adalah array
+                queue = Array.isArray(data) ? data : [];
                 resDiv.innerHTML = "";
+
+                if (queue.length === 0) {
+                    resDiv.innerHTML = "<p style='color:orange'>LAGU_TIDAK_DITEMUKAN</p>";
+                    return;
+                }
 
                 queue.forEach((track, index) => {
                     const likes = getLikes();
@@ -80,7 +92,7 @@
                     const card = document.createElement('div');
                     card.className = 'track-card';
                     card.innerHTML = `
-                        <img src="${track.thumbnail}">
+                        <img src="${track.thumbnail || 'https://via.placeholder.com/60'}">
                         <div class="track-info">
                             <div class="track-name">${track.title}</div>
                             <div class="btns">
@@ -91,28 +103,57 @@
                         </div>`;
                     resDiv.appendChild(card);
                 });
-            } catch (e) { resDiv.innerHTML = "ERROR_KONEKSI"; }
+            } catch (e) { 
+                console.error(e);
+                resDiv.innerHTML = "<p style='color:red'>ERROR_KONEKSI: Cek vercel.json atau koneksi internet</p>"; 
+            }
         }
 
+        // 4. PLAYER LOGIC (AUTO NEXT)
         function putarLagu(index) {
             if (index < 0 || index >= queue.length) return;
+            
             currentTrackIndex = index;
+            const track = queue[index];
             const player = document.getElementById('audio-web');
-            player.src = queue[index].url;
-            player.play();
-            document.getElementById('current-title').innerText = queue[index].title;
+            const status = document.getElementById('player-status');
+            const titleDisplay = document.getElementById('current-title');
 
-            player.onended = () => putarLagu(currentTrackIndex + 1);
+            player.src = track.url;
+            player.play().catch(e => console.log("Autoplay blocked atau URL mati"));
+            
+            status.style.display = "block";
+            titleDisplay.innerText = track.title;
+
+            player.onended = () => {
+                if(currentTrackIndex + 1 < queue.length) {
+                    putarLagu(currentTrackIndex + 1);
+                }
+            };
         }
 
+        // 5. FITUR LIKE & FOLLOW
         function toggleLike(index) {
             let likes = getLikes();
             const track = queue[index];
             const found = likes.findIndex(s => s.url === track.url);
+            
             if(found > -1) likes.splice(found, 1);
             else likes.push(track);
+            
             setLikes(likes);
-            cariLagu();
+            renderLikesInline(); // Update icon saja tanpa refresh pencarian
+        }
+
+        function renderLikesInline() {
+            const likes = getLikes();
+            const cards = document.querySelectorAll('.track-card');
+            cards.forEach((card, idx) => {
+                const btn = card.querySelectorAll('button')[1];
+                const isLiked = likes.some(s => s.url === queue[idx].url);
+                btn.className = isLiked ? 'active' : '';
+                btn.innerText = isLiked ? '♥' : '♡';
+            });
         }
 
         function toggleFollow() {
@@ -128,13 +169,25 @@
         function updateFollowBtn(artist) {
             const btn = document.getElementById('follow-btn');
             const follows = getFollows();
-            btn.innerText = follows.includes(artist) ? "FOLLOWED ✓" : "FOLLOW_ARTIST";
+            if(follows.includes(artist)) {
+                btn.innerText = "FOLLOWED ✓";
+                btn.classList.add('active');
+            } else {
+                btn.innerText = "FOLLOW_ARTIST";
+                btn.classList.remove('active');
+            }
+        }
+
+        // 6. UTILS
+        function hubungiDev() {
+            window.open('https://wa.me/628123456789'); // Ganti nomor kamu
         }
 
         function showModal(id) {
             document.getElementById('overlay').style.display = 'block';
             document.getElementById('modal-' + id).style.display = 'block';
         }
+
         function closeModal() {
             document.getElementById('overlay').style.display = 'none';
             document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
