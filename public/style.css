@@ -1,0 +1,16 @@
+body { background: #000; color: #fff; font-family: monospace; padding: 20px; }
+.container { max-width: 400px; margin: auto; border: 1px solid #333; padding: 15px; }
+.title { border-bottom: 2px solid #fff; text-align: center; }
+.user-info { font-size: 10px; color: #0f0; margin-bottom: 10px; }
+input { width: 100%; padding: 10px; background: #111; border: 1px solid #444; color: #fff; box-sizing: border-box; }
+button { padding: 10px; background: #fff; border: none; cursor: pointer; text-transform: uppercase; font-weight: bold; margin-top: 5px; }
+#player-status { font-size: 10px; color: #0f0; margin-top: 10px; }
+audio { width: 100%; filter: invert(1); margin-top: 5px; }
+.track-card { display: flex; gap: 10px; border: 1px solid #222; margin-top: 10px; padding: 5px; }
+.track-card img { width: 60px; height: 60px; }
+.track-name { font-size: 11px; height: 30px; overflow: hidden; }
+.active { color: #0f0; border: 1px solid #0f0 !important; background: #000 !important; }
+.fab-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; }
+.fab { width: 50px; height: 50px; border-radius: 50%; background: #0f0; font-size: 9px; }
+.modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: #111; border: 1px solid #fff; padding: 20px; z-index: 1000; text-align: center; }
+.overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 999; }
