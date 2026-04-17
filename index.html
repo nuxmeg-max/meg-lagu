@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MEG_MUSIC_v4</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h2 class="title">MEG_MUSIC_v4</h2>
+        <div class="user-info">USER_ID: <span id="display-name">...</span></div>
+        
+        <div class="search-box">
+            <input type="text" id="query" placeholder="Cari Lagu atau Artis...">
+            <button onclick="cariLagu()">SEARCH_TRACK</button>
+        </div>
+
+        <div id="player-status" style="display:none;">NOW_PLAYING: <span id="current-title">-</span></div>
+        <audio id="audio-web" controls style="width:100%; margin-top:10px; filter:invert(1);"></audio>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        let queue = [];
+        let currentTrackIndex = -1;
+        let userName = localStorage.getItem('meg_user');
+
+        function checkUser() {
+            if (!userName) {
+                userName = prompt("Masukkan namamu:") || "Guest";
+                localStorage.setItem('meg_user', userName);
+            }
+            document.getElementById('display-name').innerText = userName.toUpperCase();
+        }
+        window.onload = checkUser;
+
+        async function cariLagu() {
+            const q = document.getElementById('query').value;
+            const resDiv = document.getElementById('results');
+            if(!q) return;
+
+            resDiv.innerHTML = "<p>MENCARI_DATA...</p>";
+
+            try {
+                const response = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+                const data = await response.json();
+                queue = data;
+                resDiv.innerHTML = "";
+
+                if (queue.length === 0) {
+                    resDiv.innerHTML = "<p>LAGU_TIDAK_DITEMUKAN</p>";
+                    return;
+                }
+
+                queue.forEach((track, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'track-card';
+                    card.innerHTML = `
+                        <img src="${track.thumbnail}">
+                        <div class="track-info">
+                            <div class="track-name">${track.title}</div>
+                            <div class="btns">
+                                <button onclick="putarLagu(${index})">PLAY</button>
+                            </div>
+                        </div>`;
+                    resDiv.appendChild(card);
+                });
