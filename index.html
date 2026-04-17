@@ -37,19 +37,24 @@
         window.onload = checkUser;
 
         async function cariLagu() {
-            const q = document.getElementById('query').value;
+            const inputan = document.getElementById('query');
             const resDiv = document.getElementById('results');
-            if(!q) return;
+            const q = inputan.value;
+
+            if(!q) return alert("Masukkan judul lagu!");
 
             resDiv.innerHTML = "<p>MENCARI_DATA...</p>";
 
             try {
-                const response = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+                // Gunakan path absolut ke API Vercel
+                const link = "/api/search?q=" + encodeURIComponent(q);
+                const response = await fetch(link);
                 const data = await response.json();
+                
                 queue = data;
                 resDiv.innerHTML = "";
 
-                if (queue.length === 0) {
+                if (!queue || queue.length === 0) {
                     resDiv.innerHTML = "<p>LAGU_TIDAK_DITEMUKAN</p>";
                     return;
                 }
@@ -67,3 +72,33 @@
                         </div>`;
                     resDiv.appendChild(card);
                 });
+            } catch (e) {
+                console.error(e);
+                resDiv.innerHTML = "<p style='color:red'>KONEKSI_GAGAL_CEK_API</p>";
+            }
+        }
+
+        function putarLagu(index) {
+            currentTrackIndex = index;
+            const track = queue[index];
+            const player = document.getElementById('audio-web');
+            const status = document.getElementById('player-status');
+            const titleDisplay = document.getElementById('current-title');
+
+            if(!track.url) return alert("Link lagu tidak tersedia");
+
+            player.src = track.url;
+            player.play();
+            
+            status.style.display = "block";
+            titleDisplay.innerText = track.title;
+
+            player.onended = () => {
+                if(currentTrackIndex + 1 < queue.length) {
+                    putarLagu(currentTrackIndex + 1);
+                }
+            };
+        }
+    </script>
+</body>
+</html>
