@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MEG_MUSIC_v4</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h2 class="title">MEG_MUSIC_v4</h2>
+        <div class="user-info">USER_ID: <span id="display-name">...</span></div>
+        
+        <div class="search-box">
+            <input type="text" id="query" placeholder="Cari Lagu atau Artis...">
+            <button onclick="cariLagu()">SEARCH_TRACK</button>
+            <button id="follow-btn" style="display:none;" onclick="toggleFollow()">FOLLOW_ARTIST</button>
+        </div>
+
+        <div id="player-status">NOW_PLAYING: <span id="current-title">-</span></div>
+        <audio id="audio-web" controls></audio>
+        
+        <div id="results"></div>
+    </div>
+
+    <div class="fab-container">
+        <button class="fab" onclick="showModal('donate')">DONATE</button>
+        <button class="fab" onclick="window.open('https://wa.me/628XXXXXXXXXX')">DEV</button>
+    </div>
+
+    <div id="overlay" class="overlay" onclick="closeModal()"></div>
+    <div id="modal-donate" class="modal">
+        <h3>QRIS_DONATE</h3>
+        <p>Scan untuk support developer</p>
+        <img src="https://via.placeholder.com/200?text=QRIS_KAMU" style="width:100%">
+        <button onclick="closeModal()" style="margin-top:10px">CLOSE</button>
+    </div>
+
+    <script>
+        let queue = [];
+        let currentTrackIndex = -1;
+        let userName = localStorage.getItem('meg_user');
+        
+        // Cek User Pertama Kali
+        function checkUser() {
+            if (!userName) {
+                userName = prompt("Selamat datang! Masukkan nama kamu:");
+                if (!userName) userName = "Guest_" + Math.floor(Math.random()*100);
+                localStorage.setItem('meg_user', userName);
+                location.reload();
+            }
+            document.getElementById('display-name').innerText = userName.toUpperCase();
+        }
+        window.onload = checkUser;
+
+        // Data Management (Like & Follow)
+        const getLikes = () => JSON.parse(localStorage.getItem(`likes_${userName}`)) || [];
+        const setLikes = (data) => localStorage.setItem(`likes_${userName}`, JSON.stringify(data));
+        const getFollows = () => JSON.parse(localStorage.getItem(`follows_${userName}`)) || [];
+        const setFollows = (data) => localStorage.setItem(`follows_${userName}`, JSON.stringify(data));
+
+        async function cariLagu() {
+            const q = document.getElementById('query').value;
+            const resDiv = document.getElementById('results');
+            if(!q) return;
+
+            resDiv.innerHTML = "<p>MENCARI...</p>";
+            document.getElementById('follow-btn').style.display = "block";
+            updateFollowBtn(q);
+
+            try {
+                const response = await fetch(`/api/search?q=${q}`);
+                queue = await response.json();
+                resDiv.innerHTML = "";
+
+                queue.forEach((track, index) => {
+                    const likes = getLikes();
+                    const isLiked = likes.some(s => s.url === track.url);
+                    
+                    const card = document.createElement('div');
+                    card.className = 'track-card';
+                    card.innerHTML = `
+                        <img src="${track.thumbnail}">
+                        <div class="track-info">
+                            <div class="track-name">${track.title}</div>
+                            <div class="btns">
+                                <button onclick="putarLagu(${index})">PLAY</button>
+                                <button class="${isLiked?'active':''}" onclick="toggleLike(${index})">${isLiked?'♥':'♡'}</button>
+                                <button onclick="window.open('${track.url}')">DL</button>
+                            </div>
+                        </div>`;
+                    resDiv.appendChild(card);
+                });
+            } catch (e) { resDiv.innerHTML = "ERROR_KONEKSI"; }
+        }
+
+        function putarLagu(index) {
+            if (index < 0 || index >= queue.length) return;
+            currentTrackIndex = index;
+            const player = document.getElementById('audio-web');
+            player.src = queue[index].url;
+            player.play();
+            document.getElementById('current-title').innerText = queue[index].title;
+
+            player.onended = () => putarLagu(currentTrackIndex + 1);
+        }
+
+        function toggleLike(index) {
+            let likes = getLikes();
+            const track = queue[index];
+            const found = likes.findIndex(s => s.url === track.url);
+            if(found > -1) likes.splice(found, 1);
+            else likes.push(track);
+            setLikes(likes);
+            cariLagu();
+        }
+
+        function toggleFollow() {
+            const artist = document.getElementById('query').value;
+            let follows = getFollows();
+            const found = follows.indexOf(artist);
+            if(found > -1) follows.splice(found, 1);
+            else follows.push(artist);
+            setFollows(follows);
+            updateFollowBtn(artist);
+        }
+
+        function updateFollowBtn(artist) {
+            const btn = document.getElementById('follow-btn');
+            const follows = getFollows();
+            btn.innerText = follows.includes(artist) ? "FOLLOWED ✓" : "FOLLOW_ARTIST";
+        }
+
+        function showModal(id) {
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('modal-' + id).style.display = 'block';
+        }
+        function closeModal() {
+            document.getElementById('overlay').style.display = 'none';
+            document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+        }
+    </script>
+</body>
+</html>
